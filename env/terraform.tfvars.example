@@ -1,0 +1,10 @@
+﻿ncloud_access_key = "YOUR_ACCESS_KEY"
+ncloud_secret_key = "YOUR_SECRET_KEY"
+
+# optional
+coss_vpc_no   = "133450"
+coss_vpc_cidr = "10.0.0.0/16"
+project_name  = "coss-ext"
+
+# optional: 미설정 시 External API는 더미 JSON 반환
+coss_api_base_url = ""
