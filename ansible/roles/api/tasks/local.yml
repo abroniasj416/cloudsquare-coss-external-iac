@@ -25,5 +25,7 @@
     image: "{{ api_local_image }}"
     state: started
     restart_policy: always
+    env:
+      COSS_API_BASE_URL: "{{ coss_api_base_url }}"
     published_ports:
       - "8080:8080"

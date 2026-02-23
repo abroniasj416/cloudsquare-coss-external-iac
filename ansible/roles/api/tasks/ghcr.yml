@@ -7,5 +7,7 @@
     state: started
     restart_policy: always
     recreate: "{{ api_container_recreate | default(false) }}"
+    env:
+      COSS_API_BASE_URL: "{{ coss_api_base_url }}"
     published_ports:
       - "8080:8080"

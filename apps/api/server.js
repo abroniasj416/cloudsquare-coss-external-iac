@@ -1,8 +1,9 @@
 const http = require("http");
 
 const PORT = 8080;
+const COSS_API_BASE_URL = (process.env.COSS_API_BASE_URL || "").trim().replace(/\/$/, "");
 
-const certificates = [
+const dummyCertificates = [
   {
     serialNumber: "0001-0002",
     lectureId: 101,
@@ -17,22 +18,47 @@ const certificates = [
   }
 ];
 
-const server = http.createServer((req, res) => {
-  if (req.method === "GET" && req.url === "/api/health") {
-    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("ok");
-    return;
-  }
+function sendJson(res, statusCode, body) {
+  res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
+  res.end(JSON.stringify(body));
+}
 
-  if (req.method === "GET" && req.url === "/api/certificates") {
-    const body = JSON.stringify(certificates);
-    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(body);
-    return;
+async function fetchCertificatesFromCoss() {
+  const endpoint = `${COSS_API_BASE_URL}/api/certificates`;
+  const response = await fetch(endpoint, { method: "GET" });
+  if (!response.ok) {
+    throw new Error(`upstream status ${response.status}`);
   }
+  return response.json();
+}
 
-  res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify({ message: "not found" }));
+const server = http.createServer(async (req, res) => {
+  try {
+    if (req.method === "GET" && req.url === "/api/health") {
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("ok");
+      return;
+    }
+
+    if (req.method === "GET" && req.url === "/api/certificates") {
+      if (!COSS_API_BASE_URL) {
+        sendJson(res, 200, dummyCertificates);
+        return;
+      }
+
+      const data = await fetchCertificatesFromCoss();
+      sendJson(res, 200, data);
+      return;
+    }
+
+    sendJson(res, 404, { message: "not found" });
+  } catch (error) {
+    sendJson(res, 502, {
+      message: "upstream request failed",
+      detail: error.message,
+      cossApiBaseUrl: COSS_API_BASE_URL || ""
+    });
+  }
 });
 
 server.listen(PORT, () => {

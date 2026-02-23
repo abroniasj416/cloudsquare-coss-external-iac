@@ -10,5 +10,8 @@ api_image_name: ghcr.io/abroniasj416/cloudsquare-external-api
 api_image_tag: "v1.0.1"
 api_container_recreate: false
 
+# If empty, API returns dummy certificates.
+coss_api_base_url: "http://coss-was-lb-128027969-03b61adcd04c.kr.lb.naverncp.com"
+
 # Can be overridden if you need another web image.
 web_image_name: nginx:stable-alpine
