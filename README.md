@@ -129,3 +129,16 @@ GHCR delivers immutable API images, separating build and deployment responsibili
 External bastion centralizes administrative ingress and reduces direct attack surface on private workloads.
 Preflight enforces connectivity and execution prerequisites before configuration rollout.
 Nginx config changes are applied through in-container reload to avoid unnecessary downtime.
+## GHCR workflow (next step)
+- API image publish workflow: `.github/workflows/api-ghcr.yml`
+- Tag push trigger: `api-v*` (example: `api-v1.0.0`)
+- Manual trigger also supported via `workflow_dispatch`
+- Published image path: `ghcr.io/<github_owner>/cloudsquare-external-api:<tag>`
+
+After publishing, switch Ansible to GHCR mode:
+```yaml
+# ansible/group_vars/all.yml
+api_deploy_mode: ghcr
+api_image_name: ghcr.io/<github_owner>/cloudsquare-external-api
+api_image_tag: "v1.0.0"
+```
