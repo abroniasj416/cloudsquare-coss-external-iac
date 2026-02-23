@@ -41,3 +41,23 @@ output "alb_no" {
 output "alb_domain" {
   value = ncloud_lb.external.domain
 }
+
+output "external_bastion_public_ip" {
+  value       = ncloud_public_ip.bastion.public_ip
+  description = "External bastion public IP"
+}
+
+output "external_bastion_private_ip" {
+  value       = ncloud_network_interface.bastion.private_ip
+  description = "External bastion private IP"
+}
+
+output "web_private_ips" {
+  value       = [ncloud_network_interface.web.private_ip]
+  description = "Private IPs for web hosts"
+}
+
+output "was_private_ips" {
+  value       = [ncloud_network_interface.api.private_ip]
+  description = "Private IPs for was hosts"
+}

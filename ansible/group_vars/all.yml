@@ -1,0 +1,14 @@
+---
+# API deploy mode: local | ghcr
+api_deploy_mode: local
+
+# local mode image (built on WAS host)
+api_local_image: external-api:local
+
+# ghcr mode image
+api_image_name: ghcr.io/your-org/external-api
+api_image_tag: "v1"
+api_container_recreate: false
+
+# Can be overridden if you need another web image.
+web_image_name: nginx:stable-alpine

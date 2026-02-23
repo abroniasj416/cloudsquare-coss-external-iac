@@ -1,32 +1,21 @@
-﻿#!/bin/bash
+#!/bin/bash
 set -euo pipefail
 
-COSS_API_BASE_URL="${coss_api_base_url}"
+DEV_USER="dev1"
+DEV_PUBKEY="${bootstrap_public_key}"
 
-exec > >(tee /var/log/user-data.log) 2>&1
+id -u "$DEV_USER" >/dev/null 2>&1 || useradd -m "$DEV_USER"
+mkdir -p "/home/$DEV_USER/.ssh"
+echo "$DEV_PUBKEY" > "/home/$DEV_USER/.ssh/authorized_keys"
+chown -R "$DEV_USER:$DEV_USER" "/home/$DEV_USER/.ssh"
+chmod 700 "/home/$DEV_USER/.ssh"
+chmod 600 "/home/$DEV_USER/.ssh/authorized_keys"
 
-echo "[INFO] start api init script"
+groupadd -f wheel
+usermod -aG wheel "$DEV_USER"
 
-dnf -y update
-dnf -y install dnf-plugins-core curl git
-dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-dnf -y install docker-ce docker-ce-cli containerd.io
-systemctl enable --now docker
+sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+systemctl restart sshd || systemctl restart ssh
 
-mkdir -p /opt/external/api
-
-echo "Y29uc3QgaHR0cCA9IHJlcXVpcmUoJ2h0dHAnKTsKY29uc3QgeyBVUkwgfSA9IHJlcXVpcmUoJ3VybCcpOwoKY29uc3QgcG9ydCA9IDgwODA7CmNvbnN0IGNvc3NCYXNlID0gcHJvY2Vzcy5lbnYuQ09TU19BUElfQkFTRV9VUkwgfHwgJyc7CgpmdW5jdGlvbiBzZW5kSnNvbihyZXMsIGNvZGUsIGJvZHkpIHsKICBjb25zdCBkYXRhID0gSlNPTi5zdHJpbmdpZnkoYm9keSk7CiAgcmVzLndyaXRlSGVhZChjb2RlLCB7CiAgICAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb247IGNoYXJzZXQ9dXRmLTgnLAogICAgJ0NvbnRlbnQtTGVuZ3RoJzogQnVmZmVyLmJ5dGVMZW5ndGgoZGF0YSksCiAgfSk7CiAgcmVzLmVuZChkYXRhKTsKfQoKYXN5bmMgZnVuY3Rpb24gcHJveHlDZXJ0aWZpY2F0ZXMoKSB7CiAgY29uc3QgdGFyZ2V0ID0gY29zc0Jhc2UucmVwbGFjZSgvXC8kLywgJycpICsgJy9hcGkvY2VydGlmaWNhdGVzJzsKICBjb25zdCByZXNwb25zZSA9IGF3YWl0IGZldGNoKHRhcmdldCwgeyBtZXRob2Q6ICdHRVQnIH0pOwogIGlmICghcmVzcG9uc2Uub2spIHsKICAgIHRocm93IG5ldyBFcnJvcihgdXBzdHJlYW0gc3RhdHVzICR7cmVzcG9uc2Uuc3RhdHVzfWApOwogIH0KICByZXR1cm4gcmVzcG9uc2UuanNvbigpOwp9Cgpjb25zdCBzZXJ2ZXIgPSBodHRwLmNyZWF0ZVNlcnZlcihhc3luYyAocmVxLCByZXMpID0+IHsKICB0cnkgewogICAgY29uc3QgdXJsID0gbmV3IFVSTChyZXEudXJsLCBgaHR0cDovLyR7cmVxLmhlYWRlcnMuaG9zdH1gKTsKCiAgICBpZiAocmVxLm1ldGhvZCA9PT0gJ0dFVCcgJiYgdXJsLnBhdGhuYW1lID09PSAnL2FwaS9oZWFsdGgnKSB7CiAgICAgIHJlcy53cml0ZUhlYWQoMjAwLCB7ICdDb250ZW50LVR5cGUnOiAndGV4dC9wbGFpbjsgY2hhcnNldD11dGYtOCcgfSk7CiAgICAgIHJlcy5lbmQoJ29rJyk7CiAgICAgIHJldHVybjsKICAgIH0KCiAgICBpZiAocmVxLm1ldGhvZCA9PT0gJ0dFVCcgJiYgdXJsLnBhdGhuYW1lID09PSAnL2FwaS9jZXJ0aWZpY2F0ZXMnKSB7CiAgICAgIGlmICghY29zc0Jhc2UpIHsKICAgICAgICBzZW5kSnNvbihyZXMsIDIwMCwgWwogICAgICAgICAgewogICAgICAgICAgICBzZXJpYWxOdW1iZXI6ICcwMDAxLTAwMDInLAogICAgICAgICAgICBsZWN0dXJlSWQ6IDEsCiAgICAgICAgICAgIHVzZXJJZDogMiwKICAgICAgICAgICAgaXNzdWVkQXQ6ICcyMDI2LTAxLTAxVDEwOjAwOjAwWicKICAgICAgICAgIH0sCiAgICAgICAgICB7CiAgICAgICAgICAgIHNlcmlhbE51bWJlcjogJzAwMDMtMDAxMCcsCiAgICAgICAgICAgIGxlY3R1cmVJZDogMywKICAgICAgICAgICAgdXNlcklkOiAxMCwKICAgICAgICAgICAgaXNzdWVkQXQ6ICcyMDI2LTAxLTAyVDEzOjIwOjAwWicKICAgICAgICAgIH0KICAgICAgICBdKTsKICAgICAgICByZXR1cm47CiAgICAgIH0KCiAgICAgIGNvbnN0IGRhdGEgPSBhd2FpdCBwcm94eUNlcnRpZmljYXRlcygpOwogICAgICBzZW5kSnNvbihyZXMsIDIwMCwgZGF0YSk7CiAgICAgIHJldHVybjsKICAgIH0KCiAgICBzZW5kSnNvbihyZXMsIDQwNCwgeyBtZXNzYWdlOiAnbm90IGZvdW5kJyB9KTsKICB9IGNhdGNoIChlcnIpIHsKICAgIHNlbmRKc29uKHJlcywgNTAwLCB7IG1lc3NhZ2U6ICdpbnRlcm5hbCBlcnJvcicsIGRldGFpbDogZXJyLm1lc3NhZ2UgfSk7CiAgfQp9KTsKCnNlcnZlci5saXN0ZW4ocG9ydCwgKCkgPT4gewogIGNvbnNvbGUubG9nKGBhcGkgbGlzdGVuaW5nIG9uICR7cG9ydH1gKTsKfSk7" | base64 -d > /opt/external/api/server.js
-
-echo "RlJPTSBub2RlOjIwLWFscGluZQpXT1JLRElSIC9hcHAKQ09QWSBzZXJ2ZXIuanMgL2FwcC9zZXJ2ZXIuanMKRVhQT1NFIDgwODAKQ01EIFsibm9kZSIsICJzZXJ2ZXIuanMiXQ==" | base64 -d > /opt/external/api/Dockerfile
-
-docker build -t external-api:latest /opt/external/api
-docker rm -f external-api 2>/dev/null || true
-docker run -d \
-  --name external-api \
-  --restart always \
-  -p 8080:8080 \
-  -e COSS_API_BASE_URL="$${COSS_API_BASE_URL}" \
-  external-api:latest
-
-echo "[INFO] api container started"
-echo "[INFO] api init script complete"
+dnf -y install python3 git

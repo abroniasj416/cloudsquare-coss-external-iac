@@ -1,62 +1,131 @@
-﻿# cloudsquare-coss-external-iac
+# cloudsquare-coss-external-iac
 
-Naver Cloud Platform(NCP) 기반 External 시스템 IaC입니다.
+Terraform + Ansible + Apps monorepo for external infrastructure and deployment.
 
-## 목표
+## Structure
+- `external/`: Terraform infrastructure (VPC, subnet, server, LB, external bastion)
+- `ansible/`: configuration, security, logging, container deployment
+- `apps/`: web and api source code
 
-- `terraform -chdir=external init/plan/apply`로 External 인프라를 구성
-- External UI/API 데모 서버를 Private Subnet에 배포
-- Public ALB는 external-web(80) 타겟을 사용하며, HTTP(80)/HTTPS(443) 리스너를 구성
-- `/api/*` 경로는 ALB 리스너 규칙이 아니라 external-web nginx 리버스 프록시로 private API 서버(8080)로 전달
-- External VPC와 기존 COSS VPC 간 Peering 연결
+## External bastion architecture
+- External VPC public subnet hosts `external-bastion-svr` with public IP.
+- Web/WAS remain private subnet only.
+- Operational access path is internet -> external bastion -> private web/was.
 
-## 고정값
+## Required user changes
+- `env/terraform.tfvars`: set `bootstrap_public_key`, `allowed_ssh_cidr`
+- `ansible/group_vars/all.yml`: set `api_image_name`, `api_image_tag`
 
-- Region/Zone: `kr-1` / `KR-1`
-- Rocky 이미지 번호: `107029409`
-- COSS VPC No: `133450`
-- COSS VPC CIDR: `10.0.0.0/16`
-- External VPC CIDR: `10.10.0.0/16`
-- Public Subnet: `10.10.1.0/24`
-- Private Subnet: `10.10.2.0/24`
+## API deployment mode selection
+- Default (`local`): copy `apps/api` to WAS and build/run on server.
+- `ghcr`: pull immutable image from GHCR and run container.
 
-## 생성 리소스
+Set mode in `ansible/group_vars/all.yml`.
 
-- External VPC
-- Network ACL
-- Public/Private Subnet
-- Public/Private Route Table
-- NAT Gateway + Private 기본 경로(0.0.0.0/0)
-- VPC Peering(External <-> COSS)
-- ACG(ALB/WEB/API)
-- Private 서버 2대
-  - external-web-svr01
-  - external-api-svr01
-- Network Interface 2개(web/api)
-- Init Script 2개(web/api)
-- ALB + Web Target Group + Listener
-- ALB HTTPS Listener(인증서 번호 변수 `alb_ssl_certificate_no`)
-- HTTP 요청은 nginx에서 `X-Forwarded-Proto` 기반으로 HTTPS(301) 리다이렉트
-- init script 기반 Docker 컨테이너 배포
-  - Web: nginx 정적 페이지 + `/api/` 리버스 프록시
-  - API: Node.js 단일 서버(`/api/health`, `/api/certificates`)
+Local mode example:
+```yaml
+api_deploy_mode: local
+api_local_image: external-api:local
+```
 
-## 주의사항
-
-- 일부 NCP Terraform 리소스/속성명은 provider 버전에 따라 다를 수 있습니다.
-- 코드 내 `provider 문서 확인 필요` 주석이 있는 항목은 실제 사용 provider 버전에서 필드명을 확인해 주세요.
-- External API의 `/api/certificates`는 `coss_api_base_url`이 비어 있으면 더미 JSON을 반환합니다.
-
-## 변수 파일 준비
-
-`env/terraform.tfvars.example`를 복사해 `env/terraform.tfvars`를 만든 뒤 값을 입력하세요.
-
-TLS 적용 시 `alb_ssl_certificate_no`에 Certificate Manager 인증서 번호를 입력하세요.
-
-## 실행
+GHCR mode example:
+```yaml
+api_deploy_mode: ghcr
+api_image_name: ghcr.io/<org>/<repo>
+api_image_tag: "v1.0.0"
+api_container_recreate: false
+```
+## Ansible collection version lock
+- Collection versions are pinned in `ansible/requirements.yml`.
+- Install with:
 
 ```bash
+ansible-galaxy collection install -r ansible/requirements.yml
+```
+
+`ansible/bootstrap_bastion.sh` already runs this command.
+
+## Security design
+- External bastion is the single operational entry point for SSH/Ansible.
+- Private web/was do not allow direct internet SSH.
+- Access model is `dev1` user + `sudo` for privileged operations.
+- SSH hardening enforces `PermitRootLogin no` and `PasswordAuthentication no`.
+- Docker socket (`/var/run/docker.sock`) grants root-equivalent control; restrict membership and automation scope.
+
+## Execution order (standard)
+1. Terraform apply
+```bash
 terraform -chdir=external init
-terraform -chdir=external plan -var-file=../env/terraform.tfvars
 terraform -chdir=external apply -var-file=../env/terraform.tfvars
 ```
+2. Generate inventory from Terraform outputs
+```bash
+./ansible/generate_inventory.sh
+```
+3. SSH into external bastion
+```bash
+ssh -i <private_key> dev1@$(terraform -chdir=external output -raw external_bastion_public_ip)
+```
+4. On bastion, bootstrap and deploy
+```bash
+./ansible/bootstrap_bastion.sh
+export ANSIBLE_PRIVATE_KEY_FILE=<private_key_path_on_bastion>
+./ansible/generate_inventory.sh
+ansible-playbook -i ansible/inventories/dev.ini ansible/playbooks/preflight.yml
+ansible-playbook -i ansible/inventories/dev.ini ansible/playbooks/external.yml
+```
+
+## Bastion repository setup options
+### Method A (recommended): git clone on bastion
+```bash
+git clone <repo_url>
+cd cloudsquare-coss-external-iac
+```
+
+### Method B: upload from local machine
+```bash
+scp -i <private_key> -r ./cloudsquare-coss-external-iac dev1@<external_bastion_public_ip>:~/
+ssh -i <private_key> dev1@<external_bastion_public_ip>
+cd ~/cloudsquare-coss-external-iac
+```
+
+## ProxyJump usage (optional)
+- If running Ansible outside bastion, set jump host in inventory `[all:vars]`:
+
+```ini
+ansible_ssh_common_args='-o ProxyJump=dev1@<external_bastion_public_ip>'
+```
+
+## Idempotency verification
+1. Dry-run validation:
+```bash
+ansible-playbook -i ansible/inventories/dev.ini ansible/playbooks/external.yml --check
+```
+2. Run normal apply twice; second run should report `changed=0` as steady state.
+3. If `api_container_recreate=true`, container tasks will report changes by design.
+
+## Integrated commands
+- One-shot script:
+```bash
+./run.sh
+```
+- Make targets:
+```bash
+make apply
+ANSIBLE_PRIVATE_KEY_FILE=/path/to/dev1.pem make ansible
+ANSIBLE_PRIVATE_KEY_FILE=/path/to/dev1.pem make deploy
+```
+
+## Validation checklist
+- SSH from internet directly to web/was is blocked.
+- SSH from external bastion to web/was private IPs works with `dev1`.
+- `preflight.yml` passes.
+- `external.yml` completes and containers run (`web:80`, `api:8080`).
+
+## Operating model summary
+Terraform provisions immutable network and compute resources as Infrastructure as Code.
+Ansible applies hardened host and runtime configuration as Configuration as Code from the bastion.
+GHCR delivers immutable API images, separating build and deployment responsibilities.
+External bastion centralizes administrative ingress and reduces direct attack surface on private workloads.
+Preflight enforces connectivity and execution prerequisites before configuration rollout.
+Nginx config changes are applied through in-container reload to avoid unnecessary downtime.

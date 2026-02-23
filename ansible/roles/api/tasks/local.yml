@@ -1,0 +1,29 @@
+---
+- name: Ensure API app directory exists
+  ansible.builtin.file:
+    path: /opt/external/api
+    state: directory
+    mode: "0755"
+
+- name: Copy API app files for local build
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../../apps/api/"
+    dest: /opt/external/api/
+    mode: "0644"
+
+- name: Build API image locally
+  community.docker.docker_image:
+    name: "{{ api_local_image | regex_replace(':.*$', '') }}"
+    tag: "{{ api_local_image | regex_replace('^.*:', '') }}"
+    source: build
+    build:
+      path: /opt/external/api
+
+- name: Run API container from local image
+  community.docker.docker_container:
+    name: external-api
+    image: "{{ api_local_image }}"
+    state: started
+    restart_policy: always
+    published_ports:
+      - "8080:8080"

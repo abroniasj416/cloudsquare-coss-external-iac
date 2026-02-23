@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>External Web</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    button { padding: 0.5rem 1rem; }
+    table { margin-top: 1rem; border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 0.5rem; text-align: left; }
+    th { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <h1>Certificates</h1>
+  <button id="loadBtn" type="button">Load Certificates</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>serialNumber</th>
+        <th>lectureId</th>
+        <th>userId</th>
+        <th>issuedAt</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <script>
+    const loadBtn = document.getElementById('loadBtn');
+    const rows = document.getElementById('rows');
+
+    loadBtn.addEventListener('click', async () => {
+      const response = await fetch('/api/certificates');
+      const data = await response.json();
+
+      rows.innerHTML = '';
+      data.forEach((item) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.serialNumber ?? ''}</td>
+          <td>${item.lectureId ?? ''}</td>
+          <td>${item.userId ?? ''}</td>
+          <td>${item.issuedAt ?? ''}</td>
+        `;
+        rows.appendChild(tr);
+      });
+    });
+  </script>
+</body>
+</html>

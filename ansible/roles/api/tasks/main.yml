@@ -1,0 +1,13 @@
+---
+- name: Deploy API using local build mode
+  ansible.builtin.include_tasks: local.yml
+  when: api_deploy_mode == "local"
+
+- name: Deploy API using GHCR mode
+  ansible.builtin.include_tasks: ghcr.yml
+  when: api_deploy_mode == "ghcr"
+
+- name: Fail on invalid api_deploy_mode
+  ansible.builtin.fail:
+    msg: "Invalid api_deploy_mode='{{ api_deploy_mode }}'. Allowed values: local, ghcr"
+  when: api_deploy_mode not in ["local", "ghcr"]

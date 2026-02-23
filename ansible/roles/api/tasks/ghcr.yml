@@ -1,0 +1,11 @@
+---
+- name: Run API container from GHCR image
+  community.docker.docker_container:
+    name: external-api
+    image: "{{ api_image_name }}:{{ api_image_tag }}"
+    pull: true
+    state: started
+    restart_policy: always
+    recreate: "{{ api_container_recreate | default(false) }}"
+    published_ports:
+      - "8080:8080"

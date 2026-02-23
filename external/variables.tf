@@ -40,22 +40,9 @@ variable "coss_api_base_url" {
   default     = ""
 }
 
-variable "ssl_vpn_cidr" {
-  description = "SSL VPN IP pool CIDR for SSH access"
+variable "allowed_ssh_cidr" {
+  description = "Operator public IP CIDR allowed to access external bastion SSH"
   type        = string
-  default     = "172.16.0.0/23"
-}
-
-variable "ssl_vpn_name" {
-  description = "Existing SSL VPN name"
-  type        = string
-  default     = "coss-ext-kr2-sslvpn"
-}
-
-variable "ssl_vpn_no" {
-  description = "Existing SSL VPN ID/No"
-  type        = string
-  default     = "128801253"
 }
 
 variable "server_image_product_code" {
@@ -74,4 +61,9 @@ variable "alb_ssl_certificate_no" {
   description = "NCP Certificate Manager certificate number for ALB HTTPS listener"
   type        = string
   default     = "57361"
+}
+
+variable "bootstrap_public_key" {
+  description = "SSH public key injected into bootstrap user_data scripts"
+  type        = string
 }

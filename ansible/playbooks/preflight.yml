@@ -1,0 +1,85 @@
+---
+- hosts: all
+  gather_facts: yes
+
+  tasks:
+    - name: Preflight | SSH connectivity check
+      block:
+        - name: Check SSH connectivity with ping
+          ansible.builtin.ping:
+      rescue:
+        - name: Fail with SSH connectivity guidance
+          ansible.builtin.fail:
+            msg: "Preflight failed at SSH connectivity. Verify network ACL/SG, host IP, and SSH key/user settings."
+
+    - name: Preflight | Become check
+      block:
+        - name: Verify become works
+          become: yes
+          ansible.builtin.command: id -u
+          register: become_uid
+          changed_when: false
+          failed_when: become_uid.stdout != "0"
+      rescue:
+        - name: Fail with become guidance
+          ansible.builtin.fail:
+            msg: "Preflight failed at become(sudo). Verify dev1 sudo/wheel permissions and /etc/sudoers policy."
+
+    - name: Preflight | Python3 check
+      block:
+        - name: Check python3 binary
+          ansible.builtin.stat:
+            path: /usr/bin/python3
+          register: python3_stat
+
+        - name: Fail if python3 is missing
+          ansible.builtin.fail:
+            msg: "Preflight failed at python3 check. /usr/bin/python3 not found."
+          when: not python3_stat.stat.exists
+      rescue:
+        - name: Fail with python3 guidance
+          ansible.builtin.fail:
+            msg: "Preflight failed at python3 check. Install python3 via bootstrap/user_data."
+
+    - name: Preflight | Gather service facts
+      become: yes
+      ansible.builtin.service_facts:
+
+    - name: Preflight | Python Docker SDK import check
+      block:
+        - name: Check Python docker module import
+          become: yes
+          ansible.builtin.command: python3 -c "import docker"
+          changed_when: false
+          when: "'docker.service' in ansible_facts.services"
+
+        - name: Report skipped docker SDK check when Docker is absent
+          ansible.builtin.debug:
+            msg: "Docker service not installed yet, skipping Python Docker SDK import check."
+          when: "'docker.service' not in ansible_facts.services"
+      rescue:
+        - name: Fail with docker SDK guidance
+          ansible.builtin.fail:
+            msg: "Preflight failed at Python Docker SDK import. Install python3-docker first."
+
+    - name: Preflight | Docker check (non-installing)
+      block:
+        - name: Check docker runtime when service exists
+          become: yes
+          ansible.builtin.command: docker info
+          register: docker_info
+          changed_when: false
+          when: "'docker.service' in ansible_facts.services"
+
+        - name: Report docker check result
+          ansible.builtin.debug:
+            msg: >-
+              {% if 'docker.service' in ansible_facts.services %}
+              Docker service detected and runtime check succeeded.
+              {% else %}
+              Docker service not installed yet (expected before external.yml).
+              {% endif %}
+      rescue:
+        - name: Fail with docker guidance
+          ansible.builtin.fail:
+            msg: "Preflight failed at docker runtime check. Docker may be installed but not healthy."

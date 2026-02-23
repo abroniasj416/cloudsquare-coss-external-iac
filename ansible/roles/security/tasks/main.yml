@@ -1,0 +1,21 @@
+---
+- name: Disable SSH password authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication\s+'
+    line: PasswordAuthentication no
+    state: present
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: Restart sshd
+
+- name: Ensure PermitRootLogin is disabled
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin\s+'
+    line: PermitRootLogin no
+    state: present
+    validate: '/usr/sbin/sshd -t -f %s'
+  notify: Restart sshd
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers

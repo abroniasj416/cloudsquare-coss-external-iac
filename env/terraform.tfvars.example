@@ -1,5 +1,13 @@
-﻿ncloud_access_key = "YOUR_ACCESS_KEY"
+ncloud_access_key = "YOUR_ACCESS_KEY"
 ncloud_secret_key = "YOUR_SECRET_KEY"
+
+# required: SSH public key for bootstrap user(dev1)
+# example format: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... user@example"
+bootstrap_public_key = "ssh-ed25519 REPLACE_WITH_YOUR_PUBLIC_KEY"
+
+# required: your office/home public IP CIDR to access external bastion
+# example: "1.2.3.4/32"
+allowed_ssh_cidr = "1.2.3.4/32"
 
 # optional
 coss_vpc_no   = "133450"
@@ -7,5 +15,5 @@ coss_vpc_cidr = "10.0.0.0/16"
 project_name  = "coss-ext"
 alb_ssl_certificate_no = "57361"
 
-# optional: 미설정 시 External API는 더미 JSON 반환
+# optional: if empty, External API returns dummy JSON
 coss_api_base_url = ""

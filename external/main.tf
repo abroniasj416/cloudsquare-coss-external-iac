@@ -7,7 +7,6 @@ locals {
   lb_subnet_cidr      = "10.10.3.0/24"
   natgw_subnet_cidr   = "10.10.4.0/24"
 
-  # Pin to a known-good console selection (G3) to avoid G2 quota failures.
   server_image_number = "107029409"
   server_spec_code    = "s2-g3a"
 }
@@ -162,6 +161,29 @@ resource "ncloud_access_control_group_rule" "alb_rule" {
   }
 }
 
+resource "ncloud_access_control_group" "bastion" {
+  vpc_no = ncloud_vpc.external.id
+  name   = "${var.project_name}-acg-bastion"
+}
+
+resource "ncloud_access_control_group_rule" "bastion_rule" {
+  access_control_group_no = ncloud_access_control_group.bastion.id
+
+  inbound {
+    protocol    = "TCP"
+    ip_block    = var.allowed_ssh_cidr
+    port_range  = "22"
+    description = "allow ssh from operator"
+  }
+
+  outbound {
+    protocol    = "TCP"
+    ip_block    = "0.0.0.0/0"
+    port_range  = "1-65535"
+    description = "allow all outbound"
+  }
+}
+
 resource "ncloud_access_control_group" "web" {
   vpc_no = ncloud_vpc.external.id
   name   = "${var.project_name}-acg-web"
@@ -179,9 +201,9 @@ resource "ncloud_access_control_group_rule" "web_rule" {
 
   inbound {
     protocol    = "TCP"
-    ip_block    = var.ssl_vpn_cidr
+    ip_block    = "${ncloud_network_interface.bastion.private_ip}/32"
     port_range  = "22"
-    description = "allow ssh from ssl vpn"
+    description = "allow ssh from external bastion"
   }
 
   outbound {
@@ -202,9 +224,9 @@ resource "ncloud_access_control_group_rule" "api_rule" {
 
   inbound {
     protocol    = "TCP"
-    ip_block    = var.ssl_vpn_cidr
+    ip_block    = "${ncloud_network_interface.bastion.private_ip}/32"
     port_range  = "22"
-    description = "allow ssh from ssl vpn"
+    description = "allow ssh from external bastion"
   }
 
   inbound {
@@ -229,36 +251,66 @@ resource "ncloud_access_control_group_rule" "api_rule" {
   }
 }
 
+resource "ncloud_network_interface" "bastion" {
+  subnet_no             = ncloud_subnet.public.id
+  name                  = "${var.project_name}-nic-bastion"
+  access_control_groups = [ncloud_access_control_group.bastion.id]
+}
+
 resource "ncloud_network_interface" "web" {
   subnet_no             = ncloud_subnet.private.id
   name                  = "${var.project_name}-nic-web"
   access_control_groups = [ncloud_access_control_group.web.id]
-  # provider 문서 확인 필요: 버전에 따라 access_control_groups 대신 access_control_group_no_list 사용
 }
 
 resource "ncloud_network_interface" "api" {
   subnet_no             = ncloud_subnet.private.id
   name                  = "${var.project_name}-nic-api"
   access_control_groups = [ncloud_access_control_group.api.id]
-  # provider 문서 확인 필요: 버전에 따라 access_control_groups 대신 access_control_group_no_list 사용
+}
+
+resource "ncloud_init_script" "bastion" {
+  name = "${var.project_name}-init-bastion"
+  content = templatefile("${path.module}/user_data_bastion.sh", {
+    bootstrap_public_key = var.bootstrap_public_key
+  })
 }
 
 resource "ncloud_init_script" "web" {
   name = "${var.project_name}-init-web"
   content = templatefile("${path.module}/user_data.sh", {
-    api_private_ip = ncloud_network_interface.api.private_ip
+    bootstrap_public_key = var.bootstrap_public_key
   })
 }
 
 resource "ncloud_init_script" "api" {
   name = "${var.project_name}-init-api"
   content = templatefile("${path.module}/user_data_api.sh", {
-    coss_api_base_url = var.coss_api_base_url
+    bootstrap_public_key = var.bootstrap_public_key
   })
 }
 
 resource "ncloud_login_key" "default" {
   key_name = "${var.project_name}-login-key"
+}
+
+resource "ncloud_server" "bastion" {
+  subnet_no           = ncloud_subnet.public.id
+  name                = "external-bastion-svr"
+  server_image_number = local.server_image_number
+  server_spec_code    = local.server_spec_code
+  login_key_name      = ncloud_login_key.default.key_name
+
+  network_interface {
+    network_interface_no = ncloud_network_interface.bastion.id
+    order                = 0
+  }
+
+  init_script_no = ncloud_init_script.bastion.id
+}
+
+resource "ncloud_public_ip" "bastion" {
+  server_instance_no = ncloud_server.bastion.id
 }
 
 resource "ncloud_server" "web" {
@@ -267,10 +319,12 @@ resource "ncloud_server" "web" {
   server_image_number = local.server_image_number
   server_spec_code    = local.server_spec_code
   login_key_name      = ncloud_login_key.default.key_name
+
   network_interface {
     network_interface_no = ncloud_network_interface.web.id
     order                = 0
   }
+
   init_script_no = ncloud_init_script.web.id
 }
 
@@ -280,10 +334,12 @@ resource "ncloud_server" "api" {
   server_image_number = local.server_image_number
   server_spec_code    = local.server_spec_code
   login_key_name      = ncloud_login_key.default.key_name
+
   network_interface {
     network_interface_no = ncloud_network_interface.api.id
     order                = 0
   }
+
   init_script_no = ncloud_init_script.api.id
 }
 
@@ -331,4 +387,3 @@ resource "ncloud_lb_listener" "https" {
   tls_min_version_type = "TLSV12"
   use_http2            = true
 }
-

@@ -1,0 +1,6 @@
+---
+api_deploy_mode: local
+api_local_image: external-api:local
+api_image_name: ghcr.io/your-org/external-api
+api_image_tag: "v1"
+api_container_recreate: false

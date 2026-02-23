@@ -1,0 +1,4 @@
+---
+- name: Reload nginx in web container
+  ansible.builtin.command: docker exec external-web nginx -s reload
+  changed_when: false
