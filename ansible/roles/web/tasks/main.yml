@@ -22,6 +22,7 @@
   community.docker.docker_container:
     name: external-web
     image: "{{ web_image_name }}"
+    recreate: "{{ web_container_recreate | bool }}"
     state: started
     restart_policy: always
     ports:

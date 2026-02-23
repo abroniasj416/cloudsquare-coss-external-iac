@@ -1,2 +1,3 @@
 ---
 web_image_name: nginx:stable-alpine
+web_container_recreate: false
