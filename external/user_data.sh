@@ -27,6 +27,10 @@ printf '%s\n' \
   '    listen 80;' \
   '    server_name _;' \
   '' \
+  '    if ($http_x_forwarded_proto = "http") {' \
+  '        return 301 https://$host$request_uri;' \
+  '    }' \
+  '' \
   '    location / {' \
   '        root /usr/share/nginx/html;' \
   '        index index.html;' \

@@ -6,7 +6,7 @@ Naver Cloud Platform(NCP) 기반 External 시스템 IaC입니다.
 
 - `terraform -chdir=external init/plan/apply`로 External 인프라를 구성
 - External UI/API 데모 서버를 Private Subnet에 배포
-- Public ALB는 external-web(80)만 타겟으로 사용
+- Public ALB는 external-web(80) 타겟을 사용하며, HTTP(80)/HTTPS(443) 리스너를 구성
 - `/api/*` 경로는 ALB 리스너 규칙이 아니라 external-web nginx 리버스 프록시로 private API 서버(8080)로 전달
 - External VPC와 기존 COSS VPC 간 Peering 연결
 
@@ -35,6 +35,8 @@ Naver Cloud Platform(NCP) 기반 External 시스템 IaC입니다.
 - Network Interface 2개(web/api)
 - Init Script 2개(web/api)
 - ALB + Web Target Group + Listener
+- ALB HTTPS Listener(인증서 번호 변수 `alb_ssl_certificate_no`)
+- HTTP 요청은 nginx에서 `X-Forwarded-Proto` 기반으로 HTTPS(301) 리다이렉트
 - init script 기반 Docker 컨테이너 배포
   - Web: nginx 정적 페이지 + `/api/` 리버스 프록시
   - API: Node.js 단일 서버(`/api/health`, `/api/certificates`)
@@ -48,6 +50,8 @@ Naver Cloud Platform(NCP) 기반 External 시스템 IaC입니다.
 ## 변수 파일 준비
 
 `env/terraform.tfvars.example`를 복사해 `env/terraform.tfvars`를 만든 뒤 값을 입력하세요.
+
+TLS 적용 시 `alb_ssl_certificate_no`에 Certificate Manager 인증서 번호를 입력하세요.
 
 ## 실행
 

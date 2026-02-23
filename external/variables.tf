@@ -1,4 +1,4 @@
-﻿variable "ncloud_access_key" {
+variable "ncloud_access_key" {
   description = "NCP access key"
   type        = string
   sensitive   = true
@@ -68,4 +68,10 @@ variable "server_product_code" {
   description = "Optional server product code override"
   type        = string
   default     = null
+}
+
+variable "alb_ssl_certificate_no" {
+  description = "NCP Certificate Manager certificate number for ALB HTTPS listener"
+  type        = string
+  default     = "57361"
 }

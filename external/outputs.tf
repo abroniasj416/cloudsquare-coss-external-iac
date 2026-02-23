@@ -1,4 +1,4 @@
-﻿output "external_vpc_no" {
+output "external_vpc_no" {
   value = ncloud_vpc.external.id
 }
 

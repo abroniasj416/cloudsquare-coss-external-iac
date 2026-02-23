@@ -1,4 +1,4 @@
-﻿locals {
+locals {
   zone = var.zone
 
   external_vpc_cidr   = "10.10.0.0/16"
@@ -147,6 +147,13 @@ resource "ncloud_access_control_group_rule" "alb_rule" {
     description = "allow http from internet"
   }
 
+  inbound {
+    protocol    = "TCP"
+    ip_block    = "0.0.0.0/0"
+    port_range  = "443"
+    description = "allow https from internet"
+  }
+
   outbound {
     protocol    = "TCP"
     ip_block    = "0.0.0.0/0"
@@ -237,14 +244,14 @@ resource "ncloud_network_interface" "api" {
 }
 
 resource "ncloud_init_script" "web" {
-  name    = "${var.project_name}-init-web"
+  name = "${var.project_name}-init-web"
   content = templatefile("${path.module}/user_data.sh", {
     api_private_ip = ncloud_network_interface.api.private_ip
   })
 }
 
 resource "ncloud_init_script" "api" {
-  name    = "${var.project_name}-init-api"
+  name = "${var.project_name}-init-api"
   content = templatefile("${path.module}/user_data_api.sh", {
     coss_api_base_url = var.coss_api_base_url
   })
@@ -255,11 +262,11 @@ resource "ncloud_login_key" "default" {
 }
 
 resource "ncloud_server" "web" {
-  subnet_no            = ncloud_subnet.private.id
-  name                 = "external-web-svr01"
-  server_image_number  = local.server_image_number
-  server_spec_code     = local.server_spec_code
-  login_key_name       = ncloud_login_key.default.key_name
+  subnet_no           = ncloud_subnet.private.id
+  name                = "external-web-svr01"
+  server_image_number = local.server_image_number
+  server_spec_code    = local.server_spec_code
+  login_key_name      = ncloud_login_key.default.key_name
   network_interface {
     network_interface_no = ncloud_network_interface.web.id
     order                = 0
@@ -268,11 +275,11 @@ resource "ncloud_server" "web" {
 }
 
 resource "ncloud_server" "api" {
-  subnet_no            = ncloud_subnet.private.id
-  name                 = "external-api-svr01"
-  server_image_number  = local.server_image_number
-  server_spec_code     = local.server_spec_code
-  login_key_name       = ncloud_login_key.default.key_name
+  subnet_no           = ncloud_subnet.private.id
+  name                = "external-api-svr01"
+  server_image_number = local.server_image_number
+  server_spec_code    = local.server_spec_code
+  login_key_name      = ncloud_login_key.default.key_name
   network_interface {
     network_interface_no = ncloud_network_interface.api.id
     order                = 0
@@ -313,5 +320,15 @@ resource "ncloud_lb_listener" "http" {
   protocol         = "HTTP"
   port             = 80
   target_group_no  = ncloud_lb_target_group.web_tg.id
+}
+
+resource "ncloud_lb_listener" "https" {
+  load_balancer_no     = ncloud_lb.external.id
+  protocol             = "HTTPS"
+  port                 = 443
+  target_group_no      = ncloud_lb_target_group.web_tg.id
+  ssl_certificate_no   = var.alb_ssl_certificate_no
+  tls_min_version_type = "TLSV12"
+  use_http2            = true
 }
 
