@@ -14,13 +14,13 @@ Terraform + Ansible + Apps monorepo for external infrastructure and deployment.
 
 ## Required user changes
 - `env/terraform.tfvars`: set `bootstrap_public_key`, `allowed_ssh_cidr`
-- `ansible/group_vars/all.yml`: set `api_image_name`, `api_image_tag`
+- `ansible/inventories/group_vars/all.yml`: set `api_image_name`, `api_image_tag`
 
 ## API deployment mode selection
 - Default (`local`): copy `apps/api` to WAS and build/run on server.
 - `ghcr`: pull immutable image from GHCR and run container.
 
-Set mode in `ansible/group_vars/all.yml`.
+Set mode in `ansible/inventories/group_vars/all.yml`.
 
 Local mode example:
 ```yaml
@@ -137,7 +137,7 @@ Nginx config changes are applied through in-container reload to avoid unnecessar
 
 After publishing, switch Ansible to GHCR mode:
 ```yaml
-# ansible/group_vars/all.yml
+# ansible/inventories/group_vars/all.yml
 api_deploy_mode: ghcr
 api_image_name: ghcr.io/<github_owner>/cloudsquare-external-api
 api_image_tag: "v1.0.0"
