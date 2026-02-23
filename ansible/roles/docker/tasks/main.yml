@@ -11,7 +11,13 @@
       - docker-ce
       - docker-ce-cli
       - containerd.io
-      - python3-docker
+      - python3-pip
+    state: present
+
+- name: Install Docker SDK for Python via pip
+  ansible.builtin.pip:
+    name: docker
+    executable: pip3
     state: present
 
 - name: Verify Python Docker SDK import
