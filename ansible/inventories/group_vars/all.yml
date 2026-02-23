@@ -7,8 +7,9 @@ api_local_image: external-api:local
 
 # ghcr mode image
 api_image_name: ghcr.io/abroniasj416/cloudsquare-external-api
-api_image_tag: "v1.0.1"
+api_image_tag: "v1.0.2"
 api_container_recreate: false
+api_pull_on_deploy: false
 
 # If empty, API returns dummy certificates.
 coss_api_base_url: "http://coss-was-lb-128027969-03b61adcd04c.kr.lb.naverncp.com"

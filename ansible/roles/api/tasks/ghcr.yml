@@ -3,7 +3,7 @@
   community.docker.docker_container:
     name: external-api
     image: "{{ api_image_name }}:{{ api_image_tag }}"
-    pull: true
+    pull: "{{ api_pull_on_deploy | bool }}"
     state: started
     restart_policy: always
     recreate: "{{ api_container_recreate | default(false) }}"
